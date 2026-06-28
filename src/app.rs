@@ -2,6 +2,31 @@ use std::{path::PathBuf, time::SystemTime};
 
 use crate::scanner::DirNode;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum SortMode {
+    Size,
+    Name,
+    Count,
+}
+
+impl SortMode {
+    pub fn next(self) -> Self {
+        match self {
+            SortMode::Size => SortMode::Name,
+            SortMode::Name => SortMode::Count,
+            SortMode::Count => SortMode::Size,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SortMode::Size => "size",
+            SortMode::Name => "name",
+            SortMode::Count => "count",
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum ConfirmAction {
     Delete,
@@ -14,6 +39,7 @@ pub struct App {
     pub selected: usize,
     pub scanned_at: SystemTime,
     pub confirm: Option<(ConfirmAction, PathBuf)>,
+    pub sort_mode: SortMode,
 }
 
 impl App {
@@ -24,6 +50,7 @@ impl App {
             selected: 0,
             scanned_at,
             confirm: None,
+            sort_mode: SortMode::Size,
         }
     }
 
@@ -92,5 +119,53 @@ impl App {
 
     pub fn cancel_confirm(&mut self) {
         self.confirm = None;
+    }
+
+    pub fn cycle_sort(&mut self) {
+        // Save ancestor paths and current selection path before mutating the tree.
+        let ancestor_paths: Vec<PathBuf> = {
+            let mut paths = Vec::new();
+            let mut node = &self.root;
+            for &idx in &self.nav_stack {
+                paths.push(node.children[idx].path.clone());
+                node = &node.children[idx];
+            }
+            paths
+        };
+        let selected_path = self
+            .current_children()
+            .get(self.selected)
+            .map(|c| c.path.clone());
+
+        self.sort_mode = self.sort_mode.next();
+        sort_subtree(&mut self.root, self.sort_mode);
+
+        // Rebuild nav_stack indices to match the new order.
+        self.nav_stack.clear();
+        let mut node = &self.root;
+        for path in &ancestor_paths {
+            let idx = node
+                .children
+                .iter()
+                .position(|c| &c.path == path)
+                .unwrap_or(0);
+            self.nav_stack.push(idx);
+            node = &node.children[idx];
+        }
+
+        self.selected = selected_path
+            .and_then(|p| self.current_children().iter().position(|c| c.path == p))
+            .unwrap_or(0);
+    }
+}
+
+fn sort_subtree(node: &mut DirNode, mode: SortMode) {
+    match mode {
+        SortMode::Size => node.children.sort_by(|a, b| b.size.cmp(&a.size)),
+        SortMode::Name => node.children.sort_by(|a, b| a.name.cmp(&b.name)),
+        SortMode::Count => node.children.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
+    }
+    for child in &mut node.children {
+        sort_subtree(child, mode);
     }
 }

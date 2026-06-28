@@ -215,6 +215,7 @@ fn tui_loop(
                 KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('u') => {
                     app.go_up()
                 }
+                KeyCode::Char('s') => app.cycle_sort(),
                 KeyCode::Char('d') => app.start_confirm(ConfirmAction::Delete),
                 KeyCode::Char('c') => app.start_confirm(ConfirmAction::Clean),
                 KeyCode::Char('r') => {
