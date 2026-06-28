@@ -27,8 +27,8 @@ pub fn draw(frame: &mut Frame, app: &App, list_state: &mut ListState) {
     let children = app.current_children();
     let max_size = children.first().map(|c| c.size).unwrap_or(1).max(1);
 
-    // Reserve space: indicator(3) + name(30) + size(10) + spaces(4) + pct(4) = 51 minimum
-    let bar_width = (area.width as usize).saturating_sub(55).max(8);
+    // Reserve space: indicator(3) + name(30) + files(8) + gaps(6) + size(9) + gaps(2) + pct(6) = 64 minimum
+    let bar_width = (area.width as usize).saturating_sub(65).max(8);
 
     let items: Vec<ListItem> = if children.is_empty() {
         vec![ListItem::new("  (no subdirectories)").style(Style::default().fg(Color::DarkGray))]
@@ -51,6 +51,7 @@ pub fn draw(frame: &mut Frame, app: &App, list_state: &mut ListState) {
                 let color = size_color(pct);
                 let line = Line::from(vec![
                     Span::raw(format!("  {:<30} ", name)),
+                    Span::raw(format!("{:>8}  ", format_count(child.file_count))),
                     Span::styled(format!("{:>9}", size_str), Style::default().fg(color)),
                     Span::raw("  "),
                     Span::styled("█".repeat(filled), Style::default().fg(color)),
@@ -89,8 +90,8 @@ pub fn draw(frame: &mut Frame, app: &App, list_state: &mut ListState) {
         ""
     };
     let status = format!(
-        " Total: {}  Cache: {}{}   [↑↓] Move  [Enter] Open  [r] Rescan{}  [q] Quit",
-        total, age, nav_hint, action_hints
+        " Total: {}  Cache: {}{}   [↑↓] Move  [Enter] Open  [s] Sort: {}  [r] Rescan{}  [q] Quit",
+        total, age, nav_hint, app.sort_mode.label(), action_hints
     );
     frame.render_widget(
         Paragraph::new(status).style(Style::default().fg(Color::DarkGray)),
@@ -149,6 +150,16 @@ pub fn draw_scanning(frame: &mut Frame, count: u64, label: &str) {
         Paragraph::new(text).style(Style::default().fg(Color::Yellow)),
         area,
     );
+}
+
+fn format_count(n: u64) -> String {
+    if n >= 1_000_000 {
+        format!("{:.1} M", n as f64 / 1_000_000.0)
+    } else if n >= 1_000 {
+        format!("{:.1} K", n as f64 / 1_000.0)
+    } else {
+        format!("{}", n)
+    }
 }
 
 fn size_color(pct: usize) -> Color {
