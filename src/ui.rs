@@ -41,8 +41,6 @@ pub fn draw(frame: &mut Frame, app: &App, list_state: &mut ListState) {
                 let filled = (child.size as f64 / max_size as f64 * bar_width as f64) as usize;
                 let empty = bar_width - filled;
 
-                let bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
-
                 let raw_name = if !child.children.is_empty() {
                     format!("{}/", child.name)
                 } else {
@@ -50,11 +48,16 @@ pub fn draw(frame: &mut Frame, app: &App, list_state: &mut ListState) {
                 };
                 let name = truncate(&raw_name, 30);
 
-                let text = format!(
-                    "  {:<30} {:>9}  {}  {:>3}%",
-                    name, size_str, bar, pct
-                );
-                ListItem::new(text)
+                let color = size_color(pct);
+                let line = Line::from(vec![
+                    Span::raw(format!("  {:<30} ", name)),
+                    Span::styled(format!("{:>9}", size_str), Style::default().fg(color)),
+                    Span::raw("  "),
+                    Span::styled("█".repeat(filled), Style::default().fg(color)),
+                    Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
+                    Span::styled(format!("  {:>3}%", pct), Style::default().fg(color)),
+                ]);
+                ListItem::new(line)
             })
             .collect()
     };
@@ -146,6 +149,15 @@ pub fn draw_scanning(frame: &mut Frame, count: u64, label: &str) {
         Paragraph::new(text).style(Style::default().fg(Color::Yellow)),
         area,
     );
+}
+
+fn size_color(pct: usize) -> Color {
+    match pct {
+        75..=100 => Color::Red,
+        40..=74 => Color::Yellow,
+        10..=39 => Color::Green,
+        _ => Color::DarkGray,
+    }
 }
 
 fn format_size(bytes: u64) -> String {
